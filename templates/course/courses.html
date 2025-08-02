@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<button id="menuBtn" class="btn arcade-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#navSlider" aria-controls="navSlider"
+    style="position:fixed; top:2rem; left:2rem; z-index:1051; font-family:'Press Start 2P',cursive,monospace;">
+    &#9776; Menu
+</button>
+<div class="offcanvas offcanvas-start" tabindex="-1" id="navSlider" aria-labelledby="navSliderLabel" style="background:#111; color:#fff;">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="navSliderLabel" style="font-family:'Press Start 2P',cursive,monospace;">Navigation</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <ul class="nav flex-column" style="gap:1rem;">
+        <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('profile.Profile') }}" style="color:#fff;">Profile</a></li>
+        <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('courses.courses') }}" style="color:#fff;">Courses</a></li>
+        {% if session['role'] == 'teacher' %}
+            <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('submissions.teacher_submissions') }}" style="color:#fff;">Submissions</a></li>
+            <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('report.report_issue') }}" style="color:#fff;">Report Issue</a></li>
+        {% endif %}
+        {% if session['role'] == 'admin' %}
+            <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('admin.admin_dashboard') }}" style="color:#fff;">Admin Dashboard</a></li>
+        {% endif %}
+        {% if session['role'] != 'admin' %}
+            <li class="nav-item">
+                <a class="nav-link arcade-btn {% if request.endpoint == 'view_notifications' %}active{% endif %}" href="{{ url_for('notifications.view_notifications') }}" style="color:#fff;">
+                    Notifications
+                    {% if unread_notification_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-1">{{ unread_notification_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        {% endif %}
+        <li class="nav-item">
+            <a class="nav-link arcade-btn" href="{{ url_for('leaderboard.leaderboard') }}" style="color:#fff;">Leaderboard</a>
+        </li>
+        <li class="nav-item"><a class="nav-link arcade-btn" href="{{ url_for('auth.logout') }}" style="color:#fff;">Logout</a></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+    const navSlider = document.getElementById('navSlider');
+    const menuBtn = document.getElementById('menuBtn');
+    navSlider.addEventListener('show.bs.offcanvas', function () {
+        menuBtn.style.display = 'none';
+    });
+    navSlider.addEventListener('hidden.bs.offcanvas', function () {
+        menuBtn.style.display = 'block';
+    });
+</script>
+
+{% set is_admin = is_admin if is_admin is defined else False %}
+<head>
+    <meta charset="UTF-8">
+    <title>Courses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="center-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mb-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'danger' else category }} fade show" role="alert" style="font-family:'Press Start 2P',cursive,monospace;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <h1 class="mb-4" style="color:#39ff14; text-shadow:0 0 10px #39ff14,0 0 20px #39ff14,0 0 40px #00fff7; font-family:'Press Start 2P',cursive,monospace;">Courses</h1>
+        <div class="container">
+            {% if is_admin %}
+                <div class="row g-4">
+                    {% for course in all_courses %}
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <div class="card h-100" style="background:#111a; border:2px solid #ff00cc;">
+                                <div class="card-body d-flex flex-column">
+                                     {% if course.badge_image_path %}
+                                        <img src="{{ url_for('static', filename=course.badge_image_path) }}" alt="Course Badge" class="mb-2" style="width: 50px; height: 50px; align-self: center; border-radius: 50%;">
+                                     {% endif %}
+                                    <h5 class="card-title" style="font-family:'Press Start 2P',cursive,monospace; color:#fff; margin-bottom:20px;">{{ course[1] }}</h5>
+                                    <p class="card-text" style="color:#fff; font-family:'Press Start 2P',cursive,monospace; font-size:12px;">{{ course[2] }}</p>
+                                    <form method="post" action="/courses/delete/{{ course[0] }}" onsubmit="return confirm('Are you sure you want to delete this course?');" class="mt-auto">
+                                        <button type="submit" class="btn arcade-btn" style="font-family:'Press Start 2P',cursive,monospace; border-color:#ff0033;">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="col-12">
+                            <p style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">No courses available.</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                {% if session['role'] == 'teacher' %}
+                    <button class="btn arcade-btn mb-4" data-bs-toggle="modal" data-bs-target="#proposeCourseModal" style="font-family:'Press Start 2P',cursive,monospace;">
+                        Propose Course
+                    </button>
+                    {% if can_create_course %}
+                        <button class="btn arcade-btn mb-4" data-bs-toggle="modal" data-bs-target="#createCourseModal" style="font-family:'Press Start 2P',cursive,monospace;">
+                            Create Course
+                        </button>
+                    {% endif %}
+                {% endif %}
+                <ul class="nav nav-tabs mb-4" id="courseTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="available-tab" data-bs-toggle="tab" data-bs-target="#available" type="button" role="tab" aria-controls="available" aria-selected="true" style="font-family:'Press Start 2P',cursive,monospace;">Available Courses</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="enrolled-tab" data-bs-toggle="tab" data-bs-target="#enrolled" type="button" role="tab" aria-controls="enrolled" aria-selected="false" style="font-family:'Press Start 2P',cursive,monospace;">Enrolled Courses</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab" aria-controls="completed" aria-selected="false" style="font-family:'Press Start 2P',cursive,monospace;">Completed</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="courseTabsContent">
+                    <div class="tab-pane fade show active" id="available" role="tabpanel" aria-labelledby="available-tab">
+                        <div class="row g-4">
+                            {% for course in available_courses %}
+                                <div class="col-12 col-sm-6 col-md-3">
+                                    <div class="card h-100" style="background:#111a; border:2px solid #ff00cc;">
+                                        <div class="card-body d-flex flex-column">
+                                            <h5 class="card-title" style="font-family:'Press Start 2P',cursive,monospace; color:#fff; margin-bottom:20px;">{{ course[1] }}</h5>
+                                            <p class="card-text" style="color:#fff; font-family:'Press Start 2P',cursive,monospace; font-size:12px;">{{ course[2] }}</p>
+                                             {% if course[3] %}
+                                                <img src="{{ url_for('static', filename=course[3]) }}" alt="Course Badge" class="mb-2" style="width: 50px; height: 50px; align-self: center; border-radius: 50%;">
+                                            {% endif %}
+                                            {% if session['role'] in ['student', 'teacher'] %}
+                                                <a href="/enroll/{{ course[0] }}" class="btn arcade-btn mt-auto" style="font-family:'Press Start 2P',cursive,monospace;">Enroll</a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="col-12">
+                                    <p style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">No courses available.</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="enrolled" role="tabpanel" aria-labelledby="enrolled-tab">
+                        <div class="row g-4">
+                            {% for course in enrolled_courses %}
+                                <div class="col-12 col-sm-6 col-md-3">
+                                    <div class="card h-100" style="background:#111a; border:2px solid #ff00cc;">
+                                        <div class="card-body d-flex flex-column">
+                                            <h5 class="card-title" style="font-family:'Press Start 2P',cursive,monospace; color:#fff; margin-bottom:20px;">{{ course[1] }}</h5>
+                                            <p class="card-text" style="color:#fff; font-family:'Press Start 2P',cursive,monospace; font-size:12px;">{{ course[2] }}</p>
+                                             {% if course[3] %} {# course[3] is badge_image_path #}
+                                                <img src="{{ url_for('static', filename=course[3]) }}" alt="Course Badge" class="mb-2" style="width: 50px; height: 50px; align-self: center; border-radius: 50%;">
+                                             {% endif %}
+                                            <div class="mt-auto d-flex flex-column gap-2">
+                                                {% if session['role'] in ['student', 'teacher'] %}
+                                                    <a href="/unenroll/{{ course[0] }}" class="btn arcade-btn" style="font-family:'Press Start 2P',cursive,monospace;">Unenroll</a>
+                                                    <button  class="btn arcade-btn mt-2" style="font-family:'Press Start 2P',cursive,monospace;" onclick="window.location.href='/course/{{ course[0] }}'">Go to Course</button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="col-12">
+                                    <p style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">You are not enrolled in any courses.</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="completed" role="tabpanel" aria-labelledby="completed-tab">
+                        <div class="row g-4">
+                            {% for course in completed_courses %}
+                                <div class="col-12 col-sm-6 col-md-3">
+                                    <div class="card h-100" style="background:#111a; border:2px solid #39ff14;">
+                                        <div class="card-body d-flex flex-column text-center p-3">
+                                            {% if course[3] %}
+                                               <img src="{{ url_for('static', filename=course[3]) }}" alt="Course Badge" class="mb-2" style="width: 50px; height: 50px; align-self: center; border-radius: 50%;">
+                                            {% endif %}
+                                            <h5 class="card-title" style="font-family:'Press Start 2P',cursive,monospace; color:#fff; font-size: 0.9rem; flex-grow: 1; margin-top: 0.5rem;">
+                                                {{ course[1] }}
+                                            </h5>
+                                            <p class="card-text" style="font-family:'Press Start 2P',cursive,monospace; font-size:12px; color:#ccc;">
+                                                {{ course[2] }}
+                                            </p>
+                                            <div class="mt-auto">
+                                                <p class="mb-0" style="color:#39ff14; font-family:'Press Start 2P',cursive,monospace; font-size:0.8rem; text-shadow: 0 0 10px #39ff14;">
+                                                    COMPLETED
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="col-12">
+                                    <p style="color:#fff; font-family:'Press Start 2P',cursive,monospace; text-align:center;">You have not completed any courses yet.</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="modal fade" id="proposeCourseModal" tabindex="-1" aria-labelledby="proposeCourseModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <form method="post" action="/propose_course">
+            <div class="modal-content" style="background:#111a;">
+              <div class="modal-header">
+                <h5 class="modal-title" id="proposeCourseModalLabel" style="color:#fff;font-family:'Press Start 2P',cursive,monospace;">Propose a New Course</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="courseName" class="form-label" style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">Course Name</label>
+                  <input type="text" class="form-control" style="font-family:'Press Start 2P',cursive,monospace;"  id="courseName" name="name" required>
+                </div>
+                <div class="mb-3">
+                  <label for="courseDesc" class="form-label" style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">Description</label>
+                  <textarea class="form-control" style="font-family:'Press Start 2P',cursive,monospace;" id="courseDesc" name="description" rows="3" required></textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="submit" class="btn arcade-btn" style="font-family:'Press Start 2P',cursive,monospace;">Submit Proposal</button>
+              </div>
+            </div>
+        </form>
+      </div>
+    </div>
+<div class="modal fade" id="createCourseModal" tabindex="-1" aria-labelledby="createCourseModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <form method="post" action="/create_course" id="createCourseForm" enctype="multipart/form-data">
+      <div class="modal-content" style="background:#111a;">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createCourseModalLabel" style="color:#fff;font-family:'Press Start 2P',cursive,monospace;">Create Course</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="newCourseName" class="form-label" style="color:#fff;font-family:'Press Start 2P',cursive,monospace;">Course Name</label>
+            <input type="text" class="form-control" style="font-family:'Press Start 2P',cursive,monospace;" id="newCourseName" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label for="newCourseDesc" class="form-label" style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">Description</label>
+            <textarea class="form-control" style="font-family:'Press Start 2P',cursive,monospace;" id="newCourseDesc" name="description" rows="2" required></textarea>
+          </div>
+            <div class="mb-3">
+              <label for="badgeImage" class="form-label" style="color:#fff; font-family:'Press Start 2P',cursive,monospace;">Course Badge Image (Optional)</label>
+              <input class="form-control" type="file" id="badgeImage" name="badge_image" accept="image/png, image/jpeg, image/gif">
+            </div>
+          <div id="chaptersContainer"></div>
+          <button type="button" class="btn arcade-btn" onclick="addChapter()">Add Chapter</button>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn arcade-btn">Create</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let chapterCount = 0;
+function addChapter() {
+  chapterCount++;
+  const chapterDiv = document.createElement('div');
+  chapterDiv.className = 'mb-3 p-3 border rounded';
+  chapterDiv.innerHTML = `
+    <h5 style="color:#39ff14; font-family:'Press Start 2P',cursive,monospace;">Chapter ${chapterCount}</h5>
+    <input type="text" class="form-control mb-2" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterCount}][title]" placeholder="Chapter Title" required>
+    <textarea class="form-control mb-2" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterCount}][content]" placeholder="Chapter Content" required></textarea>
+    <div id="subchapters${chapterCount}"></div>
+    <button type="button" class="btn arcade-btn btn-sm mb-2" onclick="addSubchapter(${chapterCount})">Add Subchapter</button>
+    <div class="mb-2">
+      <label style="color:#fff; font-family:'Press Start 2P',cursive,monospace;"">Exam Type:</label>
+      <select class="form-select" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterCount}][exam_type]" onchange="showExamOptions(this, ${chapterCount})">
+        <option value="">None</option>
+        <option value="quiz">Quiz</option>
+        <option value="written">Written Response</option>
+        <option value="file_upload">File Upload</option>
+      </select>
+    </div>
+    <div id="examOptions${chapterCount}"></div>
+  `;
+  document.getElementById('chaptersContainer').appendChild(chapterDiv);
+}
+
+function addSubchapter(chapterNum) {
+  const subDiv = document.createElement('div');
+  subDiv.className = 'mb-2 ms-3';
+  subDiv.innerHTML = `
+    <input type="text" class="form-control mb-1" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][subchapters][]" placeholder="Subchapter Title" required>
+    <textarea class="form-control mb-1" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][subchapter_contents][]" placeholder="Subchapter Content" required></textarea>
+  `;
+  document.getElementById(`subchapters${chapterNum}`).appendChild(subDiv);
+}
+
+function showExamOptions(select, chapterNum) {
+  const container = document.getElementById(`examOptions${chapterNum}`);
+  container.innerHTML = '';
+  if (select.value === 'quiz') {
+    container.innerHTML = `
+      <div id="quizQuestions${chapterNum}"></div>
+      <button type="button" class="btn arcade-btn btn-sm" onclick="addQuizQuestion(${chapterNum})">Add Quiz Question</button>
+    `;
+  } else if (select.value === 'written') {
+    container.innerHTML = `<input type="text" class="form-control mt-2" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][written_prompt]" placeholder="Prompt for written response">`;
+  } else if (select.value === 'file_upload') {
+    container.innerHTML = `<input type="text" class="form-control mt-2" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][file_prompt]" placeholder="Instructions for file upload">`;
+  }
+}
+
+function addQuizQuestion(chapterNum) {
+  const qDiv = document.createElement('div');
+  qDiv.className = 'mb-2 ms-3';
+  const qIndex = document.querySelectorAll(`#quizQuestions${chapterNum} .quiz-question`).length;
+  qDiv.classList.add('quiz-question');
+  qDiv.innerHTML = `
+    <input type="text" class="form-control mb-1" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][quiz_questions][${qIndex}][question]" placeholder="Question" required>
+    <input type="text" class="form-control mb-1" style="font-family:'Press Start 2P',cursive,monospace;" name="chapters[${chapterNum}][quiz_questions][${qIndex}][answer]" placeholder="Answer" required>
+  `;
+  document.getElementById(`quizQuestions${chapterNum}`).appendChild(qDiv);
+}
+</script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+ <script>
+        window.addEventListener('load', function() {
+            const allFlashMessages = document.querySelectorAll('.alert.fade.show');
+            allFlashMessages.forEach(function(messageElement) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(messageElement);
+                    bsAlert.close();
+                }, 5000);
+            });
+        });
+ </script>
+</body>
+</html>
